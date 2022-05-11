@@ -41,11 +41,18 @@ public class UserServiceImpl implements UserService,UserDetailsService{
     
     
     @Override
+    public User getUserById(Long id) {
+        return userRepo.getById(id);
+    }
+    @Override
     public User getUser(String username) {
         return userRepo.findUserByUsername(username);
     }
 
-
+    @Override
+    public User getUserbyEmail(String email) {
+        return userRepo.findUserByEmail(email);
+    }
 
     @Override
     public void saveUser(User user) {
@@ -123,6 +130,10 @@ public class UserServiceImpl implements UserService,UserDetailsService{
             }else verificationOtpRepo.delete(otp);
         });
     }
+
+
+
+
     
     
 }

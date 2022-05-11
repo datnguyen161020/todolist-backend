@@ -14,11 +14,13 @@ import java.util.List;
  * @author hp
  */
 public interface UserService{
+    public User getUserById(Long id);
     public User getUser(String username);
     public boolean getState(String username);
     public void saveUser(User user);
     public void updateUser(User user);
     public void deleteUser(User user);
+    public User getUserbyEmail(String email);
     public List<User> getUsersByUsername(String username);
     public List<User> getUsersByEmail(String email);
     public List<VerificationOtp> getOtps(String otp);

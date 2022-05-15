@@ -18,9 +18,11 @@ import com.example.todolist.service.UserService;
 import com.google.api.client.json.JsonFactory;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken.Payload;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
 import com.google.api.client.http.HttpTransport;
-import com.google.api.client.http.apache.v2.ApacheHttpTransport;
+import com.google.api.client.http.javanet.NetHttpTransport;
+import com.google.api.client.json.gson.GsonFactory;
 import com.google.api.client.json.jackson2.JacksonFactory;
 import java.io.IOException;
 import java.net.MalformedURLException;
@@ -48,6 +50,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
@@ -339,25 +342,57 @@ public class UserResource {
         }
     }
     
-    @PostMapping("/google/login")
-    public void loginWithGoogle(@RequestBody String idTokenString) throws GeneralSecurityException, IOException{
-        String CLIENT_ID ="753880575706-nb0aogqjmaeuu0623dbmm9is442m7nog.apps.googleusercontent.com";
-        HttpTransport transport = new ApacheHttpTransport();
-        JsonFactory factory = new JacksonFactory();
-        GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(transport, factory)
-                .setAudience(Collections.singleton(CLIENT_ID)).build();
-        GoogleIdToken idToken = verifier.verify(idTokenString);
-        if(idToken!= null){
-            GoogleIdToken.Payload payload = idToken.getPayload();
-            String userId = payload.getSubject();
-            String email = payload.getEmail();
-            String name = (String) payload.get("name");
-            String pictureUrl = (String) payload.get("picture");
-            String locale = (String) payload.get("locale");
-            String familyName = (String) payload.get("family_name");
-            String givenName = (String) payload.get("given_name");
-        } else {
-            log.error("Invalid ID token.");
-        }
+    @PostMapping("/login/social/google")
+    public void loginWithGoogle(HttpServletRequest request,HttpServletResponse response,@RequestParam String idTokenString) throws GeneralSecurityException, IOException{
+        String CLIENT_ID ="658977310896-knrl3gka66fldh83dao2rhgbblmd4un9.apps.googleusercontent.com";
+        HttpTransport transport = new NetHttpTransport();
+        JsonFactory factory = new GsonFactory();
+
+            
+                GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(transport, factory)
+                        .setAudience(Arrays.asList(CLIENT_ID)).build();
+                log.error("token:{}",idTokenString);
+                GoogleIdToken idToken = GoogleIdToken.parse(verifier.getJsonFactory(), idTokenString);
+                log.error("token:{}",idToken);
+                boolean tokenIsValid = (idToken != null) && verifier.verify(idToken);
+                log.error("check: {}",verifier.verify(idToken));
+//                if(tokenIsValid){
+                    log.error("token :{}",idToken.toString());
+                    Payload payload = idToken.getPayload();
+                    log.error(payload.toString());
+                    String userId = payload.getSubject();
+                    String email = payload.getEmail();
+                    String name = (String) payload.get("name");
+                    String pictureUrl = (String) payload.get("picture");
+                    String locale = (String) payload.get("locale");
+                    String familyName = (String) payload.get("family_name");
+                    String givenName = (String) payload.get("given_name");
+                    User user = userService.getUserbyEmail(email);
+                    if(user==null){
+                        user = new User(null,name,email,"default",email,true);
+                        userService.saveUser(user);
+                    }
+                    Algorithm algorithm = Algorithm.HMAC256("secret".getBytes());
+                    String access_token = JWT.create()
+                            .withSubject(user.getUsername())
+                            .withExpiresAt(new Date(System.currentTimeMillis()+1*24*60*60*1000))
+                            .withIssuer(request.getRequestURL().toString())
+                            .sign(algorithm);
+                    String refresh_token = JWT.create()
+                            .withSubject(user.getUsername())
+                            .withExpiresAt(new Date(System.currentTimeMillis()+30*60*1000))
+                            .withIssuer(request.getRequestURL().toString())
+                            .sign(algorithm);
+                    Map<String, String> tokens = new HashMap<>();
+                    tokens.put("access_token", access_token);
+                    tokens.put("refresh_token", refresh_token);
+                    response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                    new ObjectMapper().writeValue(response.getOutputStream(), tokens);
+//                    new ObjectMapper().writeValue(response.getOutputStream(), email);
+//                } else {
+//                    new ObjectMapper().writeValue(response.getOutputStream(), "Token invalid");
+//                }
+
     }
 }
+    
